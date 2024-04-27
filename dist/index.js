@@ -33759,8 +33759,16 @@ async function run() {
       if (checkRun) {
         const workflowId = checkRun.details_url.split('/').slice(-3)[0];
 
-        await octokit.rest.actions.reRunWorkflow({ owner, repo, run_id: workflowId });
-        console.info(`"${checkName}" workflow has been triggered again.`);
+        try {
+          await octokit.rest.actions.reRunWorkflow({ owner, repo, run_id: workflowId });
+          console.info(`"${checkName}" workflow has been triggered again.`);
+        } catch (error) {
+          if (error.message.includes('This workflow is already running')) {
+            console.warn(`"${checkName}" workflow is already running.`);
+          } else {
+            throw error;
+          }
+        }
       } else {
         console.info(`No "${checkName}" check found.`);
       }
