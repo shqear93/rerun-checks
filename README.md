@@ -32,10 +32,10 @@ jobs:
 
 ### Action inputs
 
-| Name           | Description                                       | Required | Default |
-|----------------|---------------------------------------------------|----------|---------|
-| `github-token` | Token that is used to create comments | ✅        |         |
-| `check-names`  | Comma-separated list of check names to rerun      | ✅        |         |
+| Name           | Description                                  | Required | Default |
+|----------------|----------------------------------------------|----------|---------|
+| `github-token` | Token that is used to create comments        | ✅        |         |
+| `check-names`  | Comma-separated list of check names to rerun | ✅        |         |
 
 ## Permissions
 
