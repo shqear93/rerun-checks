@@ -3,7 +3,7 @@ const github = require('@actions/github');
 
 async function run() {
   try {
-    const checkNames = core.getInput('check-names').split(',');
+    const checkNames = core.getInput('check-names').split(', ');
     const { owner, repo } = github.context.repo;
     const branch = github.context.payload.pull_request.head.ref;
 
