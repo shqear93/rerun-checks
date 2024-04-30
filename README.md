@@ -32,11 +32,11 @@ jobs:
 
 ### Action inputs
 
-| Name           | Description                                  | Required | Default |
-|----------------|----------------------------------------------|----------|---------|
-| `github-token` | Token that is used to create comments        | ✅        |         |
-| `check-names`  | Comma-separated list of check names to rerun | ✅        |         |
-
+| Name            | Description                                  | Required | Default                                          |
+|-----------------|----------------------------------------------|----------|--------------------------------------------------|
+| `github-token`  | Token that is used to create comments        | ✅        |                                                  |
+| `check-names`   | Comma-separated list of check names to rerun | ✅        |                                                  |
+| `target-branch` | Branch for which checks should be rerun      | ❌        | the head ref of the pull request, default branch |
 ## Permissions
 
 Depending on the permissions granted to your token, you may lack some rights.

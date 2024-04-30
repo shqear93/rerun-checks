@@ -12,6 +12,12 @@ inputs:
   github-token:
     description: 'GitHub token'
     required: true
+  target-branch:
+    description: |
+      Branch for which checks should be rerun.
+      If not provided, the branch of the pull request that triggered
+      the workflow is used
+    required: false
 
 runs:
   using: 'node20'

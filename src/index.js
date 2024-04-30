@@ -5,7 +5,16 @@ async function run() {
   try {
     const checkNames = core.getInput('check-names').split(', ');
     const { owner, repo } = github.context.repo;
-    const branch = github.context.payload.pull_request.head.ref;
+    let branch = null;
+
+    if (core.getInput('target-branch')) {
+      branch = core.getInput('target-branch');
+    } else if (github.context.payload.pull_request) {
+      branch = github.context.payload.pull_request.head.ref;
+    } else {
+      const repoInfo = await octokit.rest.repos.get({ owner, repo });
+      branch = repoInfo.data.default_branch; // default branch
+    }
 
     const token = core.getInput('github-token');
     const octokit = github.getOctokit(token);
