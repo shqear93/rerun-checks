@@ -33746,19 +33746,11 @@ async function run() {
   try {
     const checkNames = core.getInput('check-names').split(', ');
     const { owner, repo } = github.context.repo;
-    let branch = null;
-
-    if (core.getInput('target-branch')) {
-      branch = core.getInput('target-branch');
-    } else if (github.context.payload.pull_request) {
-      branch = github.context.payload.pull_request.head.ref;
-    } else {
-      const repoInfo = await octokit.rest.repos.get({ owner, repo });
-      branch = repoInfo.data.default_branch; // default branch
-    }
-
     const token = core.getInput('github-token');
     const octokit = github.getOctokit(token);
+    const branch = await getBranchName(octokit, owner, repo);
+
+    core.info(`Branch: ${branch}`);
 
     const checksResult = await octokit.rest.checks.listForRef({ owner, repo, ref: branch });
 
@@ -33786,6 +33778,17 @@ async function run() {
   } catch (error) {
     core.setFailed(error.message);
   }
+}
+
+async function getBranchName(octokit, owner, repo) {
+  return core.getInput('target-branch') ||
+    github.context?.payload?.pull_request?.head?.ref ||
+    getDefaultBranch(octokit, owner, repo);
+}
+
+async function getDefaultBranch(octokit, owner, repo) {
+  const repoInfo = await octokit.rest.repos.get({ owner, repo });
+  return repoInfo.data.default_branch; // default branch
 }
 
 run();
