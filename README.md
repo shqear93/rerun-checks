@@ -34,7 +34,7 @@ jobs:
 
 | Name            | Description                                  | Required | Default                                          |
 |-----------------|----------------------------------------------|----------|--------------------------------------------------|
-| `github-token`  | Token that is used to create comments        | ✅        |                                                  |
+| `github-token`  | Token that is used to interact with GitHub   | ✅        |                                                  |
 | `check-names`   | Comma-separated list of check names to rerun | ✅        |                                                  |
 | `target-branch` | Branch for which checks should be rerun      | ❌        | the head ref of the pull request, default branch |
 ## Permissions
