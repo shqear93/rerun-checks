@@ -37,7 +37,16 @@ jobs:
 | `github-token`  | Token that is used to interact with GitHub   | ✅        |                                                  |
 | `check-names`   | Comma-separated list of check names to rerun | ✅        |                                                  |
 | `target-branch` | Branch for which checks should be rerun      | ❌        | the head ref of the pull request, default branch |
-| `page-size`     | Check runs to fetch per page from the GitHub API | ❌    | 30 (GitHub API default)                          |
+| `page-size`     | Check runs to fetch per page while paginating through the GitHub API (all pages are always fetched) | ❌ | 30 (GitHub API default) |
+
+### Action outputs
+
+| Name                     | Description                                            |
+|--------------------------|---------------------------------------------------------|
+| `rerun-checks`           | Comma-separated list of check names that were successfully rerun |
+| `not-found-checks`       | Comma-separated list of check names that were not found |
+| `already-running-checks` | Comma-separated list of check names that were already running |
+
 ## Permissions
 
 Depending on the permissions granted to your token, you may lack some rights.
