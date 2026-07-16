@@ -1,0 +1,24 @@
+name: Update Major Version Tag
+
+on:
+  release:
+    types: [published]
+
+permissions:
+  contents: write
+
+jobs:
+  update-major-tag:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Move major version tag to this release
+        run: |
+          TAG="${{ github.event.release.tag_name }}"
+          MAJOR=$(echo "$TAG" | sed -E 's/^(v[0-9]+)\..*/\1/')
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git tag -f "$MAJOR" "$TAG"
+          git push origin "$MAJOR" --force
