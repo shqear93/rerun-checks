@@ -32,6 +32,11 @@ outputs:
     description: 'Comma-separated list of check names that were not found'
   already-running-checks:
     description: 'Comma-separated list of check names that were already running'
+  result:
+    description: |
+      JSON object summarizing the run, for steps that want to parse it
+      instead of splitting the comma-separated outputs:
+      { "rerunChecks": [...], "notFoundChecks": [...], "alreadyRunningChecks": [...] }
 
 runs:
   using: 'node20'

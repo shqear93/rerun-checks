@@ -46,6 +46,7 @@ jobs:
 | `rerun-checks`           | Comma-separated list of check names that were successfully rerun |
 | `not-found-checks`       | Comma-separated list of check names that were not found |
 | `already-running-checks` | Comma-separated list of check names that were already running |
+| `result`                 | JSON object summarizing the run: `{ "rerunChecks": [...], "notFoundChecks": [...], "alreadyRunningChecks": [...] }` |
 
 ## Permissions
 
