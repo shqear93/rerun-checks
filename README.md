@@ -35,7 +35,7 @@ jobs:
 | Name            | Description                                  | Required | Default                                          |
 |-----------------|----------------------------------------------|----------|--------------------------------------------------|
 | `github-token`  | Token that is used to interact with GitHub   | ✅        |                                                  |
-| `check-names`   | Comma-separated list of check names to rerun | ✅        |                                                  |
+| `check-names`   | Comma-separated list of check names to rerun, or `*` to rerun every failed check | ✅ |                            |
 | `target-branch` | Branch for which checks should be rerun      | ❌        | the head ref of the pull request, default branch |
 | `page-size`     | Check runs to fetch per page while paginating through the GitHub API (all pages are always fetched) | ❌ | 30 (GitHub API default) |
 
@@ -54,7 +54,8 @@ To run successfully, this actions at least requires the following permissions:
 
 ```yaml
 permissions:
-  pull-requests: write 
+  pull-requests: write
+  actions: write
 ```
 
 ## Contributing

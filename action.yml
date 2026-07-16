@@ -7,7 +7,10 @@ description: 'Rerun specified GitHub checks'
 
 inputs:
   check-names:
-    description: 'Array of check names to rerun'
+    description: |
+      Comma-separated list of check names to rerun.
+      Pass '*' to rerun every check with a 'failure' conclusion instead
+      of naming each one.
     required: true
   github-token:
     description: 'GitHub token'
