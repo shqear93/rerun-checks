@@ -18,6 +18,9 @@ inputs:
       If not provided, the branch of the pull request that triggered
       the workflow is used
     required: false
+  page-size:
+    description: 'GitHub API per_page option'
+    required: false
 
 runs:
   using: 'node20'
