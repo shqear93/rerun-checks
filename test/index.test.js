@@ -117,6 +117,27 @@ describe('run', () => {
     expect(mockCore.setFailed).not.toHaveBeenCalled();
   });
 
+  it('reruns multiple checks separated without a space after the comma', async () => {
+    mockCore.getInput.mockImplementation(name => (name === 'check-names' ? 'build,test' : ''));
+    mockOctokit.rest.checks.listForRef
+      .mockResolvedValueOnce({
+        data: { check_runs: [checkRun({ id: 1, name: 'build' }), checkRun({ id: 2, name: 'test', jobId: '222' })] },
+      })
+      .mockResolvedValueOnce({ data: { check_runs: [checkRun({ id: 11, name: 'build' })] } })
+      .mockResolvedValueOnce({ data: { check_runs: [checkRun({ id: 22, name: 'test', jobId: '222' })] } });
+    mockOctokit.rest.actions.reRunJobForWorkflowRun.mockResolvedValue({});
+    mockGithub.context.payload = { pull_request: { head: { ref: 'feature-1' } } };
+
+    await run();
+
+    expect(mockOctokit.rest.actions.reRunJobForWorkflowRun).toHaveBeenCalledWith({
+      owner: 'owner', repo: 'repo', job_id: '111',
+    });
+    expect(mockOctokit.rest.actions.reRunJobForWorkflowRun).toHaveBeenCalledWith({
+      owner: 'owner', repo: 'repo', job_id: '222',
+    });
+  });
+
   it('forwards page-size as per_page to the checks API', async () => {
     mockCore.getInput.mockImplementation(name => {
       if (name === 'check-names') return 'build';

@@ -3,7 +3,7 @@ const github = require('@actions/github');
 
 async function run() {
   try {
-    const checkNames = core.getInput('check-names').split(', ');
+    const checkNames = core.getInput('check-names').split(',').map(name => name.trim());
     const pageSize = core.getInput('page-size') || undefined;
     const { owner, repo } = github.context.repo;
     const token = core.getInput('github-token');
@@ -15,14 +15,14 @@ async function run() {
     const checksResult = await octokit.rest.checks.listForRef({ owner, repo, ref: branch, per_page: pageSize });
 
     for (const checkName of checkNames) {
-      const checkRun = checksResult.data.check_runs.find(check_run => check_run.name === checkName.trim());
+      const checkRun = checksResult.data.check_runs.find(check_run => check_run.name === checkName);
 
       if (checkRun) {
         const jobId = checkRun.details_url.split('/').slice(-1)[0];
 
         try {
           await octokit.rest.actions.reRunJobForWorkflowRun({ owner, repo, job_id: jobId });
-          await waitUntilScheduled(octokit, owner, repo, branch, checkName.trim(), checkRun.id, { pageSize });
+          await waitUntilScheduled(octokit, owner, repo, branch, checkName, checkRun.id, { pageSize });
           core.info(`"${checkName}" job has been triggered again.`);
 
         } catch (error) {
