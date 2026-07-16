@@ -23,7 +23,7 @@ const mockGithub = {
 jest.mock('@actions/core', () => mockCore);
 jest.mock('@actions/github', () => mockGithub);
 
-const { run, waitUntilScheduled, getBranchName, getDefaultBranch } = require('../src/index');
+const { run, waitUntilScheduled, getBranchName, getDefaultBranch, reRunJob } = require('../src/index');
 
 function checkRun({ id, name, status = 'completed', jobId = '111' }) {
   return { id, name, status, details_url: `https://github.com/owner/repo/actions/runs/1/job/${jobId}` };
@@ -92,6 +92,34 @@ describe('waitUntilScheduled', () => {
   });
 });
 
+describe('reRunJob', () => {
+  const opts = { retries: 2, baseDelayMs: 1 };
+
+  it('retries transient errors and eventually succeeds', async () => {
+    mockOctokit.rest.actions.reRunJobForWorkflowRun
+      .mockRejectedValueOnce(new Error('boom'))
+      .mockResolvedValueOnce({});
+
+    await reRunJob(mockOctokit, 'owner', 'repo', '111', opts);
+
+    expect(mockOctokit.rest.actions.reRunJobForWorkflowRun).toHaveBeenCalledTimes(2);
+  });
+
+  it('gives up after exhausting retries', async () => {
+    mockOctokit.rest.actions.reRunJobForWorkflowRun.mockRejectedValue(new Error('boom'));
+
+    await expect(reRunJob(mockOctokit, 'owner', 'repo', '111', opts)).rejects.toThrow('boom');
+    expect(mockOctokit.rest.actions.reRunJobForWorkflowRun).toHaveBeenCalledTimes(3); // initial + 2 retries
+  });
+
+  it('does not retry when the job is already running', async () => {
+    mockOctokit.rest.actions.reRunJobForWorkflowRun.mockRejectedValue(new Error('This workflow is already running'));
+
+    await expect(reRunJob(mockOctokit, 'owner', 'repo', '111', opts)).rejects.toThrow('already running');
+    expect(mockOctokit.rest.actions.reRunJobForWorkflowRun).toHaveBeenCalledTimes(1);
+  });
+});
+
 describe('run', () => {
   beforeEach(() => {
     mockCore.getInput.mockImplementation(name => (name === 'check-names' ? 'build' : ''));
@@ -127,6 +155,50 @@ describe('run', () => {
 
     await run();
 
+    expect(mockOctokit.rest.actions.reRunJobForWorkflowRun).toHaveBeenCalledWith({
+      owner: 'owner', repo: 'repo', job_id: '111',
+    });
+    expect(mockOctokit.rest.actions.reRunJobForWorkflowRun).toHaveBeenCalledWith({
+      owner: 'owner', repo: 'repo', job_id: '222',
+    });
+  });
+
+  it('reruns every failed check when check-names is "*"', async () => {
+    mockCore.getInput.mockImplementation(name => (name === 'check-names' ? '*' : ''));
+    mockOctokit.paginate
+      .mockResolvedValueOnce([
+        checkRun({ id: 1, name: 'build', status: 'completed', jobId: '111' }),
+        { ...checkRun({ id: 2, name: 'test', jobId: '222' }), conclusion: 'failure' },
+        { ...checkRun({ id: 3, name: 'lint', jobId: '333' }), conclusion: 'success' },
+      ])
+      .mockResolvedValueOnce([{ ...checkRun({ id: 22, name: 'test', jobId: '222' }) }]);
+    mockOctokit.rest.actions.reRunJobForWorkflowRun.mockResolvedValue({});
+    mockGithub.context.payload = { pull_request: { head: { ref: 'feature-1' } } };
+
+    await run();
+
+    expect(mockOctokit.rest.actions.reRunJobForWorkflowRun).toHaveBeenCalledTimes(1);
+    expect(mockOctokit.rest.actions.reRunJobForWorkflowRun).toHaveBeenCalledWith({
+      owner: 'owner', repo: 'repo', job_id: '222',
+    });
+    expect(mockCore.setOutput).toHaveBeenCalledWith('rerun-checks', 'test');
+  });
+
+  it('reruns every matching check run when a name has duplicates (matrix jobs)', async () => {
+    mockCore.getInput.mockImplementation(name => (name === 'check-names' ? 'build' : ''));
+    mockOctokit.paginate
+      .mockResolvedValueOnce([
+        checkRun({ id: 1, name: 'build', jobId: '111' }),
+        checkRun({ id: 2, name: 'build', jobId: '222' }),
+      ])
+      .mockResolvedValueOnce([checkRun({ id: 11, name: 'build', jobId: '111' })])
+      .mockResolvedValueOnce([checkRun({ id: 22, name: 'build', jobId: '222' })]);
+    mockOctokit.rest.actions.reRunJobForWorkflowRun.mockResolvedValue({});
+    mockGithub.context.payload = { pull_request: { head: { ref: 'feature-1' } } };
+
+    await run();
+
+    expect(mockOctokit.rest.actions.reRunJobForWorkflowRun).toHaveBeenCalledTimes(2);
     expect(mockOctokit.rest.actions.reRunJobForWorkflowRun).toHaveBeenCalledWith({
       owner: 'owner', repo: 'repo', job_id: '111',
     });
@@ -180,13 +252,18 @@ describe('run', () => {
     expect(mockCore.setFailed).not.toHaveBeenCalled();
   });
 
-  it('fails the action on unexpected errors', async () => {
+  it('fails the action on unexpected errors, after exhausting retries', async () => {
+    jest.useFakeTimers({ doNotFake: ['Date'] });
     mockOctokit.paginate.mockResolvedValue([checkRun({ id: 1, name: 'build' })]);
     mockOctokit.rest.actions.reRunJobForWorkflowRun.mockRejectedValue(new Error('boom'));
     mockGithub.context.payload = { pull_request: { head: { ref: 'feature-1' } } };
 
-    await run();
+    const runPromise = run();
+    await jest.advanceTimersByTimeAsync(1000 + 2000 + 4000 + 100);
+    await runPromise;
 
+    expect(mockOctokit.rest.actions.reRunJobForWorkflowRun).toHaveBeenCalledTimes(4);
     expect(mockCore.setFailed).toHaveBeenCalledWith('boom');
+    jest.useRealTimers();
   });
 });
