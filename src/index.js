@@ -12,10 +12,14 @@ async function run() {
 
     core.info(`Branch: ${branch}`);
 
-    const checksResult = await octokit.rest.checks.listForRef({ owner, repo, ref: branch, per_page: pageSize });
+    const checkRuns = await octokit.paginate(octokit.rest.checks.listForRef, { owner, repo, ref: branch, per_page: pageSize });
+
+    const rerunChecks = [];
+    const notFoundChecks = [];
+    const alreadyRunningChecks = [];
 
     for (const checkName of checkNames) {
-      const checkRun = checksResult.data.check_runs.find(check_run => check_run.name === checkName);
+      const checkRun = checkRuns.find(check_run => check_run.name === checkName);
 
       if (checkRun) {
         const jobId = checkRun.details_url.split('/').slice(-1)[0];
@@ -24,18 +28,25 @@ async function run() {
           await octokit.rest.actions.reRunJobForWorkflowRun({ owner, repo, job_id: jobId });
           await waitUntilScheduled(octokit, owner, repo, branch, checkName, checkRun.id, { pageSize });
           core.info(`"${checkName}" job has been triggered again.`);
+          rerunChecks.push(checkName);
 
         } catch (error) {
           if (error.message.includes('is already running')) {
             core.warning(`"${checkName}" job is already running.`);
+            alreadyRunningChecks.push(checkName);
           } else {
             throw error;
           }
         }
       } else {
         core.info(`"${checkName}" check not found.`);
+        notFoundChecks.push(checkName);
       }
     }
+
+    core.setOutput('rerun-checks', rerunChecks.join(', '));
+    core.setOutput('not-found-checks', notFoundChecks.join(', '));
+    core.setOutput('already-running-checks', alreadyRunningChecks.join(', '));
   } catch (error) {
     core.setFailed(error.message);
   }
@@ -45,8 +56,8 @@ async function waitUntilScheduled(octokit, owner, repo, ref, checkName, previous
   const deadline = Date.now() + timeoutMs;
 
   while (Date.now() < deadline) {
-    const checksResult = await octokit.rest.checks.listForRef({ owner, repo, ref, per_page: pageSize });
-    const checkRun = checksResult.data.check_runs.find(check_run => check_run.name === checkName);
+    const checkRuns = await octokit.paginate(octokit.rest.checks.listForRef, { owner, repo, ref, per_page: pageSize });
+    const checkRun = checkRuns.find(check_run => check_run.name === checkName);
 
     // A rerun either creates a new check run (different id) or resets the
     // existing one to queued/in_progress - either signals it was scheduled.

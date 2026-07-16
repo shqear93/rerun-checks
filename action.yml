@@ -22,6 +22,14 @@ inputs:
     description: 'GitHub API per_page option'
     required: false
 
+outputs:
+  rerun-checks:
+    description: 'Comma-separated list of check names that were successfully rerun'
+  not-found-checks:
+    description: 'Comma-separated list of check names that were not found'
+  already-running-checks:
+    description: 'Comma-separated list of check names that were already running'
+
 runs:
   using: 'node20'
   main: 'dist/index.js'

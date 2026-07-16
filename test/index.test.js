@@ -3,6 +3,7 @@ const mockCore = {
   info: jest.fn(),
   warning: jest.fn(),
   setFailed: jest.fn(),
+  setOutput: jest.fn(),
 };
 
 const mockOctokit = {
@@ -11,6 +12,7 @@ const mockOctokit = {
     actions: { reRunJobForWorkflowRun: jest.fn() },
     repos: { get: jest.fn() },
   },
+  paginate: jest.fn(),
 };
 
 const mockGithub = {
@@ -66,9 +68,7 @@ describe('waitUntilScheduled', () => {
   const opts = { timeoutMs: 20, intervalMs: 1 };
 
   it('resolves once a check run with a new id appears', async () => {
-    mockOctokit.rest.checks.listForRef.mockResolvedValue({
-      data: { check_runs: [checkRun({ id: 2, name: 'build' })] },
-    });
+    mockOctokit.paginate.mockResolvedValue([checkRun({ id: 2, name: 'build' })]);
 
     await waitUntilScheduled(mockOctokit, 'owner', 'repo', 'main', 'build', 1, opts);
 
@@ -76,9 +76,7 @@ describe('waitUntilScheduled', () => {
   });
 
   it('resolves once the same check run flips to queued', async () => {
-    mockOctokit.rest.checks.listForRef.mockResolvedValue({
-      data: { check_runs: [checkRun({ id: 1, name: 'build', status: 'queued' })] },
-    });
+    mockOctokit.paginate.mockResolvedValue([checkRun({ id: 1, name: 'build', status: 'queued' })]);
 
     await waitUntilScheduled(mockOctokit, 'owner', 'repo', 'main', 'build', 1, opts);
 
@@ -86,9 +84,7 @@ describe('waitUntilScheduled', () => {
   });
 
   it('warns on timeout when nothing changes', async () => {
-    mockOctokit.rest.checks.listForRef.mockResolvedValue({
-      data: { check_runs: [checkRun({ id: 1, name: 'build', status: 'completed' })] },
-    });
+    mockOctokit.paginate.mockResolvedValue([checkRun({ id: 1, name: 'build', status: 'completed' })]);
 
     await waitUntilScheduled(mockOctokit, 'owner', 'repo', 'main', 'build', 1, opts);
 
@@ -102,9 +98,9 @@ describe('run', () => {
   });
 
   it('reruns a matching check and confirms it was scheduled', async () => {
-    mockOctokit.rest.checks.listForRef
-      .mockResolvedValueOnce({ data: { check_runs: [checkRun({ id: 1, name: 'build' })] } })
-      .mockResolvedValueOnce({ data: { check_runs: [checkRun({ id: 2, name: 'build' })] } });
+    mockOctokit.paginate
+      .mockResolvedValueOnce([checkRun({ id: 1, name: 'build' })])
+      .mockResolvedValueOnce([checkRun({ id: 2, name: 'build' })]);
     mockOctokit.rest.actions.reRunJobForWorkflowRun.mockResolvedValue({});
     mockGithub.context.payload = { pull_request: { head: { ref: 'feature-1' } } };
 
@@ -114,17 +110,18 @@ describe('run', () => {
       owner: 'owner', repo: 'repo', job_id: '111',
     });
     expect(mockCore.info).toHaveBeenCalledWith('"build" job has been triggered again.');
+    expect(mockCore.setOutput).toHaveBeenCalledWith('rerun-checks', 'build');
+    expect(mockCore.setOutput).toHaveBeenCalledWith('not-found-checks', '');
+    expect(mockCore.setOutput).toHaveBeenCalledWith('already-running-checks', '');
     expect(mockCore.setFailed).not.toHaveBeenCalled();
   });
 
   it('reruns multiple checks separated without a space after the comma', async () => {
     mockCore.getInput.mockImplementation(name => (name === 'check-names' ? 'build,test' : ''));
-    mockOctokit.rest.checks.listForRef
-      .mockResolvedValueOnce({
-        data: { check_runs: [checkRun({ id: 1, name: 'build' }), checkRun({ id: 2, name: 'test', jobId: '222' })] },
-      })
-      .mockResolvedValueOnce({ data: { check_runs: [checkRun({ id: 11, name: 'build' })] } })
-      .mockResolvedValueOnce({ data: { check_runs: [checkRun({ id: 22, name: 'test', jobId: '222' })] } });
+    mockOctokit.paginate
+      .mockResolvedValueOnce([checkRun({ id: 1, name: 'build' }), checkRun({ id: 2, name: 'test', jobId: '222' })])
+      .mockResolvedValueOnce([checkRun({ id: 11, name: 'build' })])
+      .mockResolvedValueOnce([checkRun({ id: 22, name: 'test', jobId: '222' })]);
     mockOctokit.rest.actions.reRunJobForWorkflowRun.mockResolvedValue({});
     mockGithub.context.payload = { pull_request: { head: { ref: 'feature-1' } } };
 
@@ -138,39 +135,39 @@ describe('run', () => {
     });
   });
 
-  it('forwards page-size as per_page to the checks API', async () => {
+  it('paginates through all pages when forwarding page-size', async () => {
     mockCore.getInput.mockImplementation(name => {
       if (name === 'check-names') return 'build';
       if (name === 'page-size') return '100';
       return '';
     });
-    mockOctokit.rest.checks.listForRef
-      .mockResolvedValueOnce({ data: { check_runs: [checkRun({ id: 1, name: 'build' })] } })
-      .mockResolvedValueOnce({ data: { check_runs: [checkRun({ id: 2, name: 'build' })] } });
+    mockOctokit.paginate
+      .mockResolvedValueOnce([checkRun({ id: 1, name: 'build' })])
+      .mockResolvedValueOnce([checkRun({ id: 2, name: 'build' })]);
     mockOctokit.rest.actions.reRunJobForWorkflowRun.mockResolvedValue({});
     mockGithub.context.payload = { pull_request: { head: { ref: 'feature-1' } } };
 
     await run();
 
-    expect(mockOctokit.rest.checks.listForRef).toHaveBeenCalledWith(
+    expect(mockOctokit.paginate).toHaveBeenCalledWith(
+      mockOctokit.rest.checks.listForRef,
       expect.objectContaining({ per_page: '100' })
     );
   });
 
   it('logs when the check is not found', async () => {
-    mockOctokit.rest.checks.listForRef.mockResolvedValue({ data: { check_runs: [] } });
+    mockOctokit.paginate.mockResolvedValue([]);
     mockGithub.context.payload = { pull_request: { head: { ref: 'feature-1' } } };
 
     await run();
 
     expect(mockCore.info).toHaveBeenCalledWith('"build" check not found.');
     expect(mockOctokit.rest.actions.reRunJobForWorkflowRun).not.toHaveBeenCalled();
+    expect(mockCore.setOutput).toHaveBeenCalledWith('not-found-checks', 'build');
   });
 
   it('warns instead of failing when the job is already running', async () => {
-    mockOctokit.rest.checks.listForRef.mockResolvedValue({
-      data: { check_runs: [checkRun({ id: 1, name: 'build' })] },
-    });
+    mockOctokit.paginate.mockResolvedValue([checkRun({ id: 1, name: 'build' })]);
     mockOctokit.rest.actions.reRunJobForWorkflowRun.mockRejectedValue(
       new Error('This workflow is already running')
     );
@@ -179,13 +176,12 @@ describe('run', () => {
     await run();
 
     expect(mockCore.warning).toHaveBeenCalledWith('"build" job is already running.');
+    expect(mockCore.setOutput).toHaveBeenCalledWith('already-running-checks', 'build');
     expect(mockCore.setFailed).not.toHaveBeenCalled();
   });
 
   it('fails the action on unexpected errors', async () => {
-    mockOctokit.rest.checks.listForRef.mockResolvedValue({
-      data: { check_runs: [checkRun({ id: 1, name: 'build' })] },
-    });
+    mockOctokit.paginate.mockResolvedValue([checkRun({ id: 1, name: 'build' })]);
     mockOctokit.rest.actions.reRunJobForWorkflowRun.mockRejectedValue(new Error('boom'));
     mockGithub.context.payload = { pull_request: { head: { ref: 'feature-1' } } };
 
