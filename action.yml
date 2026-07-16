@@ -18,6 +18,12 @@ inputs:
       If not provided, the branch of the pull request that triggered
       the workflow is used
     required: false
+  page-size:
+    description: |
+      Number of check runs to fetch per page from the GitHub API (default 30).
+      Increase this if your target branch has more checks than the default
+      page size, otherwise checks beyond the first page won't be found.
+    required: false
 
 runs:
   using: 'node20'

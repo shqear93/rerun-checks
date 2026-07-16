@@ -117,6 +117,25 @@ describe('run', () => {
     expect(mockCore.setFailed).not.toHaveBeenCalled();
   });
 
+  it('forwards page-size as per_page to the checks API', async () => {
+    mockCore.getInput.mockImplementation(name => {
+      if (name === 'check-names') return 'build';
+      if (name === 'page-size') return '100';
+      return '';
+    });
+    mockOctokit.rest.checks.listForRef
+      .mockResolvedValueOnce({ data: { check_runs: [checkRun({ id: 1, name: 'build' })] } })
+      .mockResolvedValueOnce({ data: { check_runs: [checkRun({ id: 2, name: 'build' })] } });
+    mockOctokit.rest.actions.reRunJobForWorkflowRun.mockResolvedValue({});
+    mockGithub.context.payload = { pull_request: { head: { ref: 'feature-1' } } };
+
+    await run();
+
+    expect(mockOctokit.rest.checks.listForRef).toHaveBeenCalledWith(
+      expect.objectContaining({ per_page: '100' })
+    );
+  });
+
   it('logs when the check is not found', async () => {
     mockOctokit.rest.checks.listForRef.mockResolvedValue({ data: { check_runs: [] } });
     mockGithub.context.payload = { pull_request: { head: { ref: 'feature-1' } } };
