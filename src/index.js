@@ -21,6 +21,7 @@ async function run() {
 
         try {
           await octokit.rest.actions.reRunJobForWorkflowRun({ owner, repo, job_id: jobId });
+          await waitUntilScheduled(octokit, owner, repo, branch, checkName.trim(), checkRun.id);
           core.info(`"${checkName}" job has been triggered again.`);
 
         } catch (error) {
@@ -39,6 +40,25 @@ async function run() {
   }
 }
 
+async function waitUntilScheduled(octokit, owner, repo, ref, checkName, previousCheckRunId, { timeoutMs = 30000, intervalMs = 2000 } = {}) {
+  const deadline = Date.now() + timeoutMs;
+
+  while (Date.now() < deadline) {
+    const checksResult = await octokit.rest.checks.listForRef({ owner, repo, ref });
+    const checkRun = checksResult.data.check_runs.find(check_run => check_run.name === checkName);
+
+    // A rerun either creates a new check run (different id) or resets the
+    // existing one to queued/in_progress - either signals it was scheduled.
+    if (checkRun && (checkRun.id !== previousCheckRunId || checkRun.status === 'queued' || checkRun.status === 'in_progress')) {
+      return;
+    }
+
+    await new Promise(resolve => setTimeout(resolve, intervalMs));
+  }
+
+  core.warning(`Timed out waiting for "${checkName}" to be scheduled.`);
+}
+
 async function getBranchName(octokit, owner, repo) {
   return core.getInput('target-branch') ||
     github.context?.payload?.pull_request?.head?.ref ||
@@ -50,4 +70,9 @@ async function getDefaultBranch(octokit, owner, repo) {
   return repoInfo.data.default_branch; // default branch
 }
 
-run();
+/* istanbul ignore next */
+if (require.main === module) {
+  run();
+}
+
+module.exports = { run, waitUntilScheduled, getBranchName, getDefaultBranch };
