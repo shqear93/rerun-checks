@@ -31825,6 +31825,90 @@ function wrappy (fn, cb) {
 
 /***/ }),
 
+/***/ 1590:
+/***/ ((module, __unused_webpack_exports, __nccwpck_require__) => {
+
+const core = __nccwpck_require__(9093);
+const github = __nccwpck_require__(5207);
+
+async function run() {
+  try {
+    const checkNames = core.getInput('check-names').split(', ');
+    const { owner, repo } = github.context.repo;
+    const token = core.getInput('github-token');
+    const octokit = github.getOctokit(token);
+    const branch = await getBranchName(octokit, owner, repo);
+
+    core.info(`Branch: ${branch}`);
+
+    const checksResult = await octokit.rest.checks.listForRef({ owner, repo, ref: branch });
+
+    for (const checkName of checkNames) {
+      const checkRun = checksResult.data.check_runs.find(check_run => check_run.name === checkName.trim());
+
+      if (checkRun) {
+        const jobId = checkRun.details_url.split('/').slice(-1)[0];
+
+        try {
+          await octokit.rest.actions.reRunJobForWorkflowRun({ owner, repo, job_id: jobId });
+          await waitUntilScheduled(octokit, owner, repo, branch, checkName.trim(), checkRun.id);
+          core.info(`"${checkName}" job has been triggered again.`);
+
+        } catch (error) {
+          if (error.message.includes('This workflow is already running')) {
+            core.warning(`"${checkName}" job is already running.`);
+          } else {
+            throw error;
+          }
+        }
+      } else {
+        core.info(`"${checkName}" check not found.`);
+      }
+    }
+  } catch (error) {
+    core.setFailed(error.message);
+  }
+}
+
+async function waitUntilScheduled(octokit, owner, repo, ref, checkName, previousCheckRunId, { timeoutMs = 30000, intervalMs = 2000 } = {}) {
+  const deadline = Date.now() + timeoutMs;
+
+  while (Date.now() < deadline) {
+    const checksResult = await octokit.rest.checks.listForRef({ owner, repo, ref });
+    const checkRun = checksResult.data.check_runs.find(check_run => check_run.name === checkName);
+
+    // A rerun either creates a new check run (different id) or resets the
+    // existing one to queued/in_progress - either signals it was scheduled.
+    if (checkRun && (checkRun.id !== previousCheckRunId || checkRun.status === 'queued' || checkRun.status === 'in_progress')) {
+      return;
+    }
+
+    await new Promise(resolve => setTimeout(resolve, intervalMs));
+  }
+
+  core.warning(`Timed out waiting for "${checkName}" to be scheduled.`);
+}
+
+async function getBranchName(octokit, owner, repo) {
+  return core.getInput('target-branch') ||
+    github.context?.payload?.pull_request?.head?.ref ||
+    getDefaultBranch(octokit, owner, repo);
+}
+
+async function getDefaultBranch(octokit, owner, repo) {
+  const repoInfo = await octokit.rest.repos.get({ owner, repo });
+  return repoInfo.data.default_branch; // default branch
+}
+
+/* istanbul ignore next */
+if (require.main === require.cache[eval('__filename')]) {
+  run();
+}
+
+module.exports = { run, waitUntilScheduled, getBranchName, getDefaultBranch };
+
+/***/ }),
+
 /***/ 2707:
 /***/ ((module) => {
 
@@ -33736,64 +33820,12 @@ module.exports = JSON.parse('[[[0,44],"disallowed_STD3_valid"],[[45,46],"valid"]
 /******/ 	if (typeof __nccwpck_require__ !== 'undefined') __nccwpck_require__.ab = __dirname + "/";
 /******/ 	
 /************************************************************************/
-var __webpack_exports__ = {};
-// This entry need to be wrapped in an IIFE because it need to be isolated against other modules in the chunk.
-(() => {
-const core = __nccwpck_require__(9093);
-const github = __nccwpck_require__(5207);
-
-async function run() {
-  try {
-    const checkNames = core.getInput('check-names').split(', ');
-    const { owner, repo } = github.context.repo;
-    const token = core.getInput('github-token');
-    const octokit = github.getOctokit(token);
-    const branch = await getBranchName(octokit, owner, repo);
-
-    core.info(`Branch: ${branch}`);
-
-    const checksResult = await octokit.rest.checks.listForRef({ owner, repo, ref: branch });
-
-    for (const checkName of checkNames) {
-      const checkRun = checksResult.data.check_runs.find(check_run => check_run.name === checkName.trim());
-
-      if (checkRun) {
-        const jobId = checkRun.details_url.split('/').slice(-1)[0];
-
-        try {
-          await octokit.rest.actions.reRunJobForWorkflowRun({ owner, repo, job_id: jobId });
-          core.info(`"${checkName}" job has been triggered again.`);
-
-        } catch (error) {
-          if (error.message.includes('This workflow is already running')) {
-            core.warning(`"${checkName}" job is already running.`);
-          } else {
-            throw error;
-          }
-        }
-      } else {
-        core.info(`"${checkName}" check not found.`);
-      }
-    }
-  } catch (error) {
-    core.setFailed(error.message);
-  }
-}
-
-async function getBranchName(octokit, owner, repo) {
-  return core.getInput('target-branch') ||
-    github.context?.payload?.pull_request?.head?.ref ||
-    getDefaultBranch(octokit, owner, repo);
-}
-
-async function getDefaultBranch(octokit, owner, repo) {
-  const repoInfo = await octokit.rest.repos.get({ owner, repo });
-  return repoInfo.data.default_branch; // default branch
-}
-
-run();
-})();
-
-module.exports = __webpack_exports__;
+/******/ 	
+/******/ 	// startup
+/******/ 	// Load entry module and return exports
+/******/ 	// This entry module is referenced by other modules so it can't be inlined
+/******/ 	var __webpack_exports__ = __nccwpck_require__(1590);
+/******/ 	module.exports = __webpack_exports__;
+/******/ 	
 /******/ })()
 ;
