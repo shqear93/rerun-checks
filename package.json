@@ -29,7 +29,7 @@
     "@actions/github": "^8.0.1"
   },
   "devDependencies": {
-    "@vercel/ncc": "^0.38.1",
+    "@vercel/ncc": "^0.44.1",
     "jest": "^30.4.2"
   }
 }
