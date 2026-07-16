@@ -1,0 +1,16 @@
+name: E2E Target (flaky check)
+
+on: pull_request
+
+jobs:
+  flaky-check:
+    name: flaky-check
+    runs-on: ubuntu-latest
+    steps:
+      - name: Fail on first attempt, pass on rerun
+        run: |
+          if [ "$GITHUB_RUN_ATTEMPT" = "1" ]; then
+            echo "Simulating a failure so the e2e-rerun workflow has something to rerun."
+            exit 1
+          fi
+          echo "Passing on attempt $GITHUB_RUN_ATTEMPT"

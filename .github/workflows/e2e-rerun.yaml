@@ -1,0 +1,45 @@
+name: E2E (rerun flaky check)
+
+on:
+  workflow_run:
+    workflows: ["E2E Target (flaky check)"]
+    types: [completed]
+
+jobs:
+  rerun:
+    name: Rerun flaky-check via this action
+    # Only same-repo runs: workflow_run executes with base-repo secrets, so
+    # never check out / act on a fork's head ref here.
+    if: >
+      github.event.workflow_run.conclusion == 'failure' &&
+      github.event.workflow_run.head_repository.full_name == github.repository
+    runs-on: ubuntu-latest
+    permissions:
+      actions: write
+      checks: read
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.workflow_run.head_branch }}
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Setup pnpm & install
+        uses: pnpm/action-setup@v3
+        with:
+          version: 9
+          run_install: true
+
+      - name: Build the action
+        run: pnpm run build
+
+      - name: Rerun flaky-check
+        uses: ./
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          check-names: flaky-check
+          target-branch: ${{ github.event.workflow_run.head_branch }}
