@@ -14,3 +14,38 @@ jobs:
             exit 1
           fi
           echo "Passing on attempt $GITHUB_RUN_ATTEMPT"
+
+  # Never fails - a control so e2e-rerun-wildcard.yaml can assert that
+  # check-names: '*' only touches checks with a 'failure' conclusion.
+  always-pass-check:
+    name: always-pass-check
+    runs-on: ubuntu-latest
+    steps:
+      - run: echo "Always passes."
+
+  # Two separate jobs sharing an identical check-run name, standing in for
+  # a matrix job whose legs aren't parameterized into distinct names - the
+  # exact scenario that used to make waitUntilScheduled match the wrong
+  # instance. Both fail on the first attempt so e2e-rerun-wildcard.yaml has
+  # two same-named failures to rerun.
+  matrix-check-a:
+    name: matrix-check
+    runs-on: ubuntu-latest
+    steps:
+      - name: Fail on first attempt, pass on rerun
+        run: |
+          if [ "$GITHUB_RUN_ATTEMPT" = "1" ]; then
+            exit 1
+          fi
+          echo "Passing on attempt $GITHUB_RUN_ATTEMPT"
+
+  matrix-check-b:
+    name: matrix-check
+    runs-on: ubuntu-latest
+    steps:
+      - name: Fail on first attempt, pass on rerun
+        run: |
+          if [ "$GITHUB_RUN_ATTEMPT" = "1" ]; then
+            exit 1
+          fi
+          echo "Passing on attempt $GITHUB_RUN_ATTEMPT"
