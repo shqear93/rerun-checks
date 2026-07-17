@@ -16,8 +16,8 @@ importers:
         version: 8.0.1
     devDependencies:
       '@vercel/ncc':
-        specifier: ^0.38.1
-        version: 0.38.1
+        specifier: ^0.44.1
+        version: 0.44.1
       jest:
         specifier: ^30.4.2
         version: 30.4.2(@types/node@26.1.1)
@@ -537,8 +537,8 @@ packages:
     cpu: [x64]
     os: [win32]
 
-  '@vercel/ncc@0.38.1':
-    resolution: {integrity: sha512-IBBb+iI2NLu4VQn3Vwldyi2QwaXt5+hTyh58ggAMoCGE6DJmPvwL3KPBWcJl1m9LYPChBLE980Jw+CS4Wokqxw==}
+  '@vercel/ncc@0.44.1':
+    resolution: {integrity: sha512-cUjIE5P2YY1n+Kt9rFIazMMpGoPn1Fic04rOmTkElMkiDP5oszGfERMpo2shVkFKDL7rVppdM2pqJKC59shQWQ==}
     hasBin: true
 
   ansi-escapes@4.3.2:
@@ -1999,7 +1999,7 @@ snapshots:
   '@unrs/resolver-binding-win32-x64-msvc@1.12.2':
     optional: true
 
-  '@vercel/ncc@0.38.1': {}
+  '@vercel/ncc@0.44.1': {}
 
   ansi-escapes@4.3.2:
     dependencies:
