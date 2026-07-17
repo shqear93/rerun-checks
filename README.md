@@ -22,7 +22,7 @@ jobs:
     if: github.event.review.state == 'approved'
     steps:
       - name: Rerun Checks
-        uses: shqear93/rerun-checks@v1
+        uses: shqear93/rerun-checks@v3
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           check-names: 'check1, check2' # Replace with the names of the jobs you want to rerun
