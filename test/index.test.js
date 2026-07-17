@@ -29,6 +29,12 @@ function checkRun({ id, name, status = 'completed', jobId = '111' }) {
   return { id, name, status, details_url: `https://github.com/owner/repo/actions/runs/1/job/${jobId}` };
 }
 
+function alreadyRunningError() {
+  const error = new Error('This workflow is already running');
+  error.status = 403;
+  return error;
+}
+
 beforeEach(() => {
   jest.clearAllMocks();
   mockGithub.context.payload = {};
@@ -113,10 +119,34 @@ describe('reRunJob', () => {
   });
 
   it('does not retry when the job is already running', async () => {
-    mockOctokit.rest.actions.reRunJobForWorkflowRun.mockRejectedValue(new Error('This workflow is already running'));
+    mockOctokit.rest.actions.reRunJobForWorkflowRun.mockRejectedValue(alreadyRunningError());
 
     await expect(reRunJob(mockOctokit, 'owner', 'repo', '111', opts)).rejects.toThrow('already running');
     expect(mockOctokit.rest.actions.reRunJobForWorkflowRun).toHaveBeenCalledTimes(1);
+  });
+
+  it('retries a 403 that lacks the already-running message', async () => {
+    const error = new Error('Resource not accessible by integration');
+    error.status = 403;
+    mockOctokit.rest.actions.reRunJobForWorkflowRun
+      .mockRejectedValueOnce(error)
+      .mockResolvedValueOnce({});
+
+    await reRunJob(mockOctokit, 'owner', 'repo', '111', opts);
+
+    expect(mockOctokit.rest.actions.reRunJobForWorkflowRun).toHaveBeenCalledTimes(2);
+  });
+
+  it('retries an already-running-worded error that is not a 403', async () => {
+    const error = new Error('This workflow is already running');
+    error.status = 500;
+    mockOctokit.rest.actions.reRunJobForWorkflowRun
+      .mockRejectedValueOnce(error)
+      .mockResolvedValueOnce({});
+
+    await reRunJob(mockOctokit, 'owner', 'repo', '111', opts);
+
+    expect(mockOctokit.rest.actions.reRunJobForWorkflowRun).toHaveBeenCalledTimes(2);
   });
 });
 
@@ -141,6 +171,11 @@ describe('run', () => {
     expect(mockCore.setOutput).toHaveBeenCalledWith('rerun-checks', 'build');
     expect(mockCore.setOutput).toHaveBeenCalledWith('not-found-checks', '');
     expect(mockCore.setOutput).toHaveBeenCalledWith('already-running-checks', '');
+    expect(mockCore.setOutput).toHaveBeenCalledWith('result', JSON.stringify({
+      rerunChecks: ['build'],
+      notFoundChecks: [],
+      alreadyRunningChecks: [],
+    }));
     expect(mockCore.setFailed).not.toHaveBeenCalled();
   });
 
@@ -241,7 +276,7 @@ describe('run', () => {
   it('warns instead of failing when the job is already running', async () => {
     mockOctokit.paginate.mockResolvedValue([checkRun({ id: 1, name: 'build' })]);
     mockOctokit.rest.actions.reRunJobForWorkflowRun.mockRejectedValue(
-      new Error('This workflow is already running')
+      alreadyRunningError()
     );
     mockGithub.context.payload = { pull_request: { head: { ref: 'feature-1' } } };
 

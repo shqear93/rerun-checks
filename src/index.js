@@ -40,7 +40,7 @@ async function run() {
           rerunChecks.push(checkName);
 
         } catch (error) {
-          if (error.message.includes('is already running')) {
+          if (isAlreadyRunningError(error)) {
             core.warning(`"${checkName}" job is already running.`);
             alreadyRunningChecks.push(checkName);
           } else {
@@ -60,9 +60,23 @@ async function run() {
     core.setOutput('rerun-checks', rerunChecks.join(', '));
     core.setOutput('not-found-checks', notFoundChecks.join(', '));
     core.setOutput('already-running-checks', alreadyRunningChecks.join(', '));
+    core.setOutput('result', JSON.stringify({
+      rerunChecks,
+      notFoundChecks,
+      alreadyRunningChecks,
+    }));
   } catch (error) {
     core.setFailed(error.message);
   }
+}
+
+// GitHub returns 403 for both "insufficient permissions" and "already
+// running" on this endpoint, with no separate error code to tell them apart
+// - status alone isn't enough, and message alone risks matching unrelated
+// errors that happen to contain similar text. Requiring both is the closest
+// we can get to a reliable check without a real distinguishing signal.
+function isAlreadyRunningError(error) {
+  return error.status === 403 && error.message.includes('is already running');
 }
 
 async function reRunJob(octokit, owner, repo, jobId, { retries = 3, baseDelayMs = 1000 } = {}) {
@@ -72,7 +86,7 @@ async function reRunJob(octokit, owner, repo, jobId, { retries = 3, baseDelayMs 
       return;
     } catch (error) {
       // Not a transient failure - the caller handles this case specially.
-      if (error.message.includes('is already running') || attempt > retries) {
+      if (isAlreadyRunningError(error) || attempt > retries) {
         throw error;
       }
       await new Promise(resolve => setTimeout(resolve, baseDelayMs * 2 ** (attempt - 1)));
