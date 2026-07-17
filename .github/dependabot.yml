@@ -4,6 +4,14 @@ updates:
     directory: "/"
     schedule:
       interval: "daily"
+    ignore:
+      # @actions/core@3.x and @actions/github@9.x are ESM-only (no
+      # require() export), incompatible with this repo's CommonJS source
+      # and ncc-bundled dist. Confirmed via CI failure on #19/#20.
+      - dependency-name: "@actions/core"
+        versions: [">=3.0.0"]
+      - dependency-name: "@actions/github"
+        versions: [">=9.0.0"]
   - package-ecosystem: "github-actions"
     directory: "/"
     schedule:
