@@ -36,7 +36,7 @@ jobs:
           node-version: 20
 
       - name: Setup pnpm & install
-        uses: pnpm/action-setup@v3
+        uses: pnpm/action-setup@v6
         with:
           version: 9
           run_install: true
@@ -73,7 +73,7 @@ jobs:
           node-version: 20
 
       - name: Setup pnpm & install
-        uses: pnpm/action-setup@v3
+        uses: pnpm/action-setup@v6
         with:
           version: 9
           run_install: true
@@ -123,7 +123,7 @@ jobs:
           node-version: 20
 
       - name: Setup pnpm & install
-        uses: pnpm/action-setup@v3
+        uses: pnpm/action-setup@v6
         with:
           version: 9
           run_install: true
